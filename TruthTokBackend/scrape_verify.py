@@ -4,8 +4,8 @@ from newspaper import Article
 import urllib.parse
 from transformers import pipeline
 
-# initialize the classifier pipeline
-classifier = pipeline("text-classification", model="mrm8488/bert-tiny-finetuned-fake-news", tokenizer="mrm8488/bert-tiny-finetuned-fake-news")
+# Load the model with PyTorch
+pipe = pipeline("text-classification", model="mrm8488/bert-tiny-finetuned-fake-news-detection", from_pt=True)
 
 def construct_search_url(keywords, start):
     query = urllib.parse.quote_plus(keywords)
@@ -13,7 +13,6 @@ def construct_search_url(keywords, start):
 
 def scrape(keyword):
     all_articles = []
-
     headers = {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
     }
@@ -71,7 +70,7 @@ def classify(all_articles):
     fake = 0
 
     for article in all_articles:
-        result = classifier(article['text'])[0]['label']  # classifier returns a list of dictionaries
+        result = pipe(article['text'])[0]['label']  # classifier returns a list of dictionaries
         if result == 'REAL': 
             real += 1
         else:

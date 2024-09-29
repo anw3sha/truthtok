@@ -1,41 +1,59 @@
 import pyktok as pyk
 import speech_recognition as sr
 from pydub import AudioSegment
-import os
 from imutils.object_detection import non_max_suppression
 import numpy as np
 import cv2
-from download_reels import download
 import pytesseract
+import os
+import re
 
-def download_vid(link):
-    if 'tiktok' in link: 
-        pyk.specify_browser('chrome')
-        pyk.save_tiktok(link, True, 'tiktok_video.mp4', 'chrome')
-        return "tiktok_video.mp4"
-    elif 'reel' in link:
-        download(link, 'reel_video.mp4')
-        return "reel_video.mp4"
-    else:
-        raise ValueError("Unsupported link format")
+# import yt-dlp
+from yt_dlp import extract_info
+
+def download_vid(link, output_dir='downloads'):
+    if 'tiktok' not in link:
+        raise ValueError("Unsupported link format. Please provide a valid TikTok URL.")
+
+    if not os.path.exists(output_dir):
+        os.makedirs(output_dir)
+    
+    ydl_opts = {
+        'outtmpl': f'{output_dir}/%(title)s.%(ext)s',
+        'format': 'mp4',
+    }
+
+    try:
+        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+            info_dict = ydl.extract_info(link, download=True)
+            uploader = info_dict.get('uploader', None)
+            file_path = info_dict['requested_downloads'][0]['filepath']
+            
+            return file_path 
+    
+    except Exception as e:
+        print(f"Error downloading video or retrieving metadata: {e}")
+        return None
+
 
 def get_audio(video):
+    print(video)
     video = AudioSegment.from_file(video, format="mp4")
     audio = video.set_channels(1).set_frame_rate(16000).set_sample_width(2)
+    
     audio.export("audio.wav", format="wav")
 
     recognizer = sr.Recognizer()
 
     with sr.AudioFile("audio.wav") as source:
         audio_text = recognizer.record(source)
+    
     transcription_text = recognizer.recognize_google(audio_text, language='en-US')
-
-    with open("transcription.txt", "w") as file:
-        file.write(transcription_text)
 
     return transcription_text
 
-net = cv2.dnn.readNet("frozen_east_text_detection.pb")
+
+net = cv2.dnn.readNet("/Users/adityabodanapu/Downloads/frozen_east_text_detection.pb")
 
 def detect_text(frame):
     newW, newH = (320, 320)
@@ -115,4 +133,13 @@ def process_video(video_path):
     cap.release()
     cv2.destroyAllWindows()
 
-    return all_detected_text
+    username = extract_username(all_detected_text)
+
+    return username, all_detected_text
+
+def extract_username(detected_text):
+    username = re.search(r'@(\w+)', detected_text)  
+    if username:
+        return username.group(1)
+    else:
+        raise ValueError("Username not found in the detected text.")

@@ -11,13 +11,20 @@ class dbConnection():
         cred = credentials.Certificate("truthtok.json")
         firebase_admin.initialize_app(cred)
         self.db = firestore.client()
-    def getAccount(self, accID):
-        doc_ref = self.db.collection('accounts').document(accID)
+    def getAccount(self, email, password):
+
+
+        doc_ref = self.db.collection('accounts').document(email)
         snap = doc_ref.get()
+
         if snap.exists:
-            return snap.to_dict()
+            if snap["password"] == password:
+                return snap.to_dict()
+            else:
+                return "Wrong Password"
+
         else:
-            return Exception
+            return "No User"
 
     def getCreator(self, creatID):
         doc_ref = self.db.collection('creators').document(creatID)
@@ -43,4 +50,13 @@ class dbConnection():
         newAcc = {"Correct": 0, "Incorrect":0, "Indeterminate":0}
         self.db.collection('accounts').document(accID).set(newAcc)
 
-
+    def createAccount(self, bod):
+        newA = {
+            "Correct":0,
+            "Incorrect": 0,
+            "Indeterminate":0,
+            "password":bod["password"],
+            "email":bod["email"]
+        }
+        self.db.collection('accounts').document(bod["email"]).set(newA)
+        return 200
